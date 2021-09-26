@@ -1,0 +1,61 @@
+{
+  "name": "express-middlewares",
+  "version": "0.0.3",
+  "description": "",
+  "main": "dist/index.js",
+  "typings": "dist/index.d.ts",
+  "scripts": {
+    "clean": "./node_modules/.bin/rimraf dist",
+    "compile": "npm run clean && ./node_modules/.bin/tsc --build tsconfig.build.json",
+    "test": "./node_modules/.bin/tsc --build tsconfig.test.json && nyc mocha",
+    "lint": "./node_modules/.bin/eslint ./src --ext .ts,.tsx",
+    "lint:fix": "./node_modules/.bin/eslint ./src --ext .ts,.tsx --fix",
+    "prettier": "./node_modules/.bin/prettier --check ./src",
+    "prettier:fix": "./node_modules/.bin/prettier --write ./src",
+    "pre-push": "npm run prettier && npm run lint && npm test",
+    "pre-commit": ""
+  },
+  "author": "Niels P. Sorensen",
+  "license": "MIT",
+  "homepage": "https://github.com/sorensenNiels",
+  "devDependencies": {
+    "@istanbuljs/nyc-config-typescript": "^1.0.1",
+    "@types/chai": "^4.2.11",
+    "@types/deep-equal": "^1.0.1",
+    "@types/express": "^4.17.11",
+    "@types/express-serve-static-core": "4.17.24",
+    "@types/faker": "^5.5.8",
+    "@types/mocha": "^9.0.0",
+    "@types/serve-static": "1.13.10",
+    "@types/sinon": "^10.0.4",
+    "@typescript-eslint/eslint-plugin": "^4.31.2",
+    "@typescript-eslint/parser": "^4.31.2",
+    "chai": "^4.2.0",
+    "eslint": "^7.2.0",
+    "eslint-config-prettier": "^8.3.0",
+    "eslint-plugin-import": "^2.24.2",
+    "eslint-plugin-promise": "^5.1.0",
+    "faker": "^5.5.3",
+    "husky": "^7.0.2",
+    "mocha": "^9.1.2",
+    "node-mocks-http": "^1.8.1",
+    "nyc": "^15.0.1",
+    "prettier": "2.4.1",
+    "prettier-plugin-organize-imports": "^2.3.4",
+    "rimraf": "^3.0.2",
+    "sinon": "^11.1.2",
+    "source-map-support": "^0.5.19",
+    "ts-node": "^10.2.1",
+    "typescript": "^4.4.3"
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "autobind-decorator": "^2.4.0",
+    "deep-equal": "^2.0.3",
+    "express": "^4.17.1",
+    "http-status-codes": "^2.1.4",
+    "type-fest": "^2.3.4"
+  }
+}
