@@ -3,6 +3,6 @@ Playground project for express middlewares
 * TypeScript
 * Eslint
 * Prettier
-* Mocha
+* Mocha, Chai
 * Docker
 * Nyc

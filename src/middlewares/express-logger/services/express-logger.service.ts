@@ -4,18 +4,12 @@
 
 import { boundClass } from 'autobind-decorator';
 import express from 'express';
-import { OutgoingHttpHeaders } from 'http';
+import { JsonObject } from 'type-fest';
 import { DefaultLoggerAdapter } from '../defaults/defaultLoggerAdapter';
-import {
-  ExpressLoggerOptions,
-  ExpressLoggerRequest,
-  ExpressLoggerResource,
-  ExpressLoggerResponse
-} from '../models/models';
+import { ExpressLoggerOptions, ExpressLoggerRequest, ExpressLoggerResponse } from '../models/models';
 
-// tslint:disable-next-line:interface-name
-interface InternalExpressResponse extends express.Response {
-  _headers: any;
+interface InternalResponseWithBody extends express.Response {
+  body?: string | JsonObject;
 }
 
 /**
@@ -47,21 +41,92 @@ export class ExpressLoggerService {
    */
   public async provideMiddlewareFunction(
     req: express.Request,
-    res: express.Response,
+    res: InternalResponseWithBody,
     next: express.NextFunction
   ): Promise<void> {
     const performLogging = true;
 
     if (performLogging) {
-      const resource = {
-        request: this.convertToExpressLoggerRequest(req)
-      };
-      await this._options.loggerAdapter.create(resource);
-      this.setupHooks(res, resource);
+      res.once('error', (err) =>
+        this.onResFinish(
+          err,
+          this.convertToExpressLoggerRequest(req),
+          this.convertToExpressLoggerResponse(res, res.statusCode, res.body)
+        )
+      );
+
+      res.once('finish', () =>
+        this.onResFinish(
+          null,
+          this.convertToExpressLoggerRequest(req),
+          this.convertToExpressLoggerResponse(res, res.statusCode, res.body)
+        )
+      );
+
+      await this._options.loggerAdapter.create(this._options);
+      this.setupHooks(res);
       next();
     } else {
       next();
     }
+  }
+
+  private onResFinish(err: any, reqInfo: ExpressLoggerRequest, resInfo: ExpressLoggerResponse) {
+    console.log('SUCCESS!');
+    console.log(reqInfo);
+    console.log(resInfo);
+  }
+
+  /**
+   * Override function, which is the correct way. But Typescript won't allow it because there is multiple overloads.
+   * @param res
+   */
+  private setupHooks(res: InternalResponseWithBody): void {
+    // Wait for all promise to come back. To ensure performance, fire and forget.
+    Promise.all<any>([this.endHook(res)])
+      .then(async ([body]) => {
+        res.body = body;
+        return;
+      })
+      .catch(async () => {
+        console.log('Something went wrong');
+      });
+  }
+
+  /**
+   * Hook into end function
+   * @param res
+   */
+  private endHook(res: express.Response): Promise<any> {
+    return new Promise<any>((resolve) => {
+      const defaultEnd = res.end.bind(res);
+      // @ts-ignore
+      res.end = (chunk: any, encoding: BufferEncoding) => {
+        if (chunk) {
+          const isJson = res.getHeader('content-type') && (res.getHeader('content-type') as string).indexOf('json') > 0;
+          const body = chunk.toString();
+          resolve(this.bodyToString(body, isJson));
+        }
+
+        defaultEnd(chunk, encoding);
+      };
+    });
+  }
+
+  private safeJSONParse(string: string) {
+    try {
+      return JSON.parse(string);
+    } catch (e) {
+      return undefined;
+    }
+  }
+
+  private bodyToString(body, isJSON) {
+    const stringBody = body && body.toString();
+    if (isJSON) {
+      return this.safeJSONParse(body) || stringBody;
+    }
+    return stringBody;
   }
 
   /**
@@ -79,63 +144,14 @@ export class ExpressLoggerService {
   }
 
   /**
-   * Override function, which is the correct way. But Typescript won't allow it because there is multiple overloads.
-   * @param res
-   * @param _resource
-   */
-  private setupHooks(res: express.Response, _resource: ExpressLoggerResource): void {
-    // Wait for all promise to come back. To ensure performance, fire and forget.
-    Promise.all<[number, OutgoingHttpHeaders], any>([this.writeHeadHook(res), this.sendHook(res)])
-      .then(async ([[statusCode], body]) => {
-        const response = this.buildExpressLoggerResponse(res, statusCode, body);
-        console.log(response);
-        return;
-      })
-      .catch(async () => {
-        console.log('Something went wrong');
-      });
-  }
-
-  /**
-   * Hook into writeHead function of response to receive the status code
-   * and the headers.
-   * @param res
-   */
-  private writeHeadHook(res: express.Response): Promise<[number, OutgoingHttpHeaders]> {
-    return new Promise<[number, OutgoingHttpHeaders]>((resolve) => {
-      const defaultWriteHead = res.writeHead.bind(res);
-      // @ts-ignore
-      res.writeHead = (statusCode: number, reasonPhrase?: any, headers?: any) => {
-        resolve([statusCode, headers]);
-        defaultWriteHead(statusCode, reasonPhrase, headers);
-      };
-    });
-  }
-
-  /**
-   * Hook into send function of the response to receive the body.
-   * @param res
-   */
-  private sendHook(res: express.Response): Promise<any> {
-    return new Promise<any>((resolve) => {
-      const defaultSend = res.send.bind(res);
-      // @ts-ignore
-      res.send = (body?: any) => {
-        resolve(body);
-        defaultSend(body);
-      };
-    });
-  }
-
-  /**
-   * Build idempotency response from hook responses and the response itself.
+   * Build express logger response object for logger
    * @param res
    * @param statusCode
    * @param body
    */
-  private buildExpressLoggerResponse(res: express.Response, statusCode: number, body: any): ExpressLoggerResponse {
+  private convertToExpressLoggerResponse(res: express.Response, statusCode: number, body: any): ExpressLoggerResponse {
     const headerWhitelist: string[] = ['content-type'];
-    const preliminaryHeaders = (res as InternalExpressResponse)._headers;
+    const preliminaryHeaders = res.getHeaders();
     // Keeps only whitelisted headers
     const headers = Object.keys(preliminaryHeaders)
       .filter((key) => headerWhitelist.includes(key))

@@ -24,14 +24,6 @@ export class ExpressLoggerResponse {
 }
 
 /**
- * ExpressLoger resource.
- */
-export interface ExpressLoggerResource {
-  request: ExpressLoggerRequest;
-  response?: ExpressLoggerResponse;
-}
-
-/**
  * Interface to implement for performing the actual logging
  */
 export interface IExpressLoggerAdapter {
@@ -39,7 +31,11 @@ export interface IExpressLoggerAdapter {
    * Create an instance of the Express logger logging adapter
    * @param loggerResource Idempotency resource
    */
-  create(loggerResource: ExpressLoggerResource): Promise<void>;
+  create(loggerOptions: ExpressLoggerOptions): Promise<void>;
+
+  responseLogger(expressLoggerResponse: ExpressLoggerResponse): Promise<void>;
+
+  requestLogger(expressLoggerRequest: ExpressLoggerRequest): Promise<void>;
 }
 
 /**
